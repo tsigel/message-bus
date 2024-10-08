@@ -4,12 +4,15 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
-    "url": "git@github.com:wavesplatform/waves-browser-bus.git"
+    "url": "git@github.com:tsigel/message-bus.git"
   },
   "bugs": {
-    "url": "https://github.com/wavesplatform/waves-browser-bus/issues"
+    "url": "https://github.com/tsigel/message-bus/pulls"
   },
   "devDependencies": {
     "@types/jest": "^29.5.13",
