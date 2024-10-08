@@ -1,7 +1,7 @@
 import { Adapter } from './Adapter';
 import { console, IOneArgFunction, TChanelId, TMessageContent, toArray, UniqPrimitiveCollection, uniqueId } from '..';
 import { WindowProtocol } from '../protocols/WindowProtocol';
-import { pipe } from '../utils/utils';
+import { pipe } from '../utils';
 import IOptions = WindowAdapter.IOptions;
 import IWindow = WindowProtocol.IWindow;
 
@@ -60,13 +60,13 @@ export class WindowAdapter extends Adapter {
     }
 
     private accessEvent(event: WindowProtocol.IMessageEvent<TMessageContent>): boolean {
-        if (typeof event.data !== 'object' || event.data.type == null) {
-            console.info('WindowAdapter: Block event. Wrong event format!', event.data);
+        if (!this.options.origins.has('*') && !this.options.origins.has(event.origin)) {
+            console.info(`SimpleWindowAdapter: Block event by origin "${event.origin}"`);
             return false;
         }
 
-        if (!this.options.origins.has('*') && !this.options.origins.has(event.origin)) {
-            console.info(`SimpleWindowAdapter: Block event by origin "${event.origin}"`);
+        if (typeof event.data !== 'object' || !event.data || event.data.type == null) {
+            console.info('WindowAdapter: Block event. Wrong event format!', event.data);
             return false;
         }
 
@@ -158,7 +158,7 @@ export class WindowAdapter extends Adapter {
 
         if (!(content instanceof HTMLIFrameElement)) {
             try {
-                return window.top.origin;
+                return window.top?.origin ?? null;
             } catch (e) {
                 return null;
             }

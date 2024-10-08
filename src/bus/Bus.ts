@@ -1,5 +1,6 @@
 import { Adapter } from '../adapters/Adapter';
-import { uniqueId, console } from '../utils';
+import { uniqueId, console, BusError } from '../utils';
+import { StrictType } from '../types';
 
 
 export const enum EventType {
@@ -14,7 +15,6 @@ export const enum ResponseStatus {
 }
 
 export class Bus<T extends Record<string, any> = any, H extends Record<string, (data: any) => any> = any> {
-
     public id: string = uniqueId('bus');
     private _adapter: Adapter;
     private readonly _activeRequestHash: Record<string, ISentActionData>;
@@ -34,13 +34,13 @@ export class Bus<T extends Record<string, any> = any, H extends Record<string, (
         console.info(`Create Bus with id "${this.id}"`);
     }
 
-    public dispatchEvent<K extends keyof T>(name: K, data: T[K]): this {
+    public dispatchEvent<K extends StrictType<keyof T, string>>(name: K, data: T[K]): this {
         this._adapter.send(Bus._createEvent(name as string, data));
         console.info(`Dispatch event "${name}"`, data);
         return this;
     }
 
-    public request<E extends keyof H>(name: E, data?: Parameters<H[E]>[0], timeout?: number): Promise<ReturnType<H[E]> extends Promise<infer P> ? P : ReturnType<H[E]>> {
+    public request<E extends StrictType<keyof H, string>>(name: E, data?: Parameters<H[E]>[0], timeout?: number): Promise<ReturnType<H[E]> extends Promise<infer P> ? P : ReturnType<H[E]>> {
         return new Promise<any>((resolve, reject) => {
             const id = uniqueId(`${this.id}-action`);
             const wait = timeout || this._timeout;
@@ -50,7 +50,7 @@ export class Bus<T extends Record<string, any> = any, H extends Record<string, (
             if ((timeout || this._timeout) !== -1) {
                 timer = setTimeout(() => {
                     delete this._activeRequestHash[id];
-                    const error = new Error(`Timeout error for request with name "${name}" and timeout ${wait}!`);
+                    const error = new BusError(`Timeout error for request with name "${name}" and timeout ${wait}!`, '');
                     console.error(error);
                     reject(error);
                 }, wait);
@@ -116,9 +116,9 @@ export class Bus<T extends Record<string, any> = any, H extends Record<string, (
         return this;
     }
 
-    public registerRequestHandler<E extends keyof H>(name: E, handler: H[E]): this {
+    public registerRequestHandler<E extends StrictType<keyof H, string>>(name: E, handler: H[E]): this {
         if (this._requestHandlers[name]) {
-            throw new Error('Duplicate request handler!');
+            throw new Error(`Duplicate request handler for ${name}!`);
         }
 
         this._requestHandlers[name] = handler;
@@ -187,18 +187,19 @@ export class Bus<T extends Record<string, any> = any, H extends Record<string, (
     }
 
     private _createResponse(message: IRequestData): void {
-        const sendError = (error: Error) => {
-            console.error(error);
+        const sendError = (error: unknown) => {
+            const busError = BusError.from(error);
+            console.error(busError);
             this._adapter.send({
                 id: message.id,
                 type: EventType.Response,
                 status: ResponseStatus.Error,
-                content: Bus._dataToMessage(error)
+                content: Bus._dataToMessage(busError.serialize())
             });
         };
 
         if (!this._requestHandlers[String(message.name)]) {
-            sendError(new Error(`Has no handler for "${String(message.name)}" action!`));
+            sendError(new BusError(`Has no handler for "${String(message.name)}" action!`, ''));
             return void 0;
         }
 
@@ -222,7 +223,7 @@ export class Bus<T extends Record<string, any> = any, H extends Record<string, (
                     content: Bus._dataToMessage(result)
                 });
             }
-        } catch (e) {
+        } catch (e: unknown) {
             sendError(e);
         }
     }
@@ -231,7 +232,7 @@ export class Bus<T extends Record<string, any> = any, H extends Record<string, (
         if (this._activeRequestHash[message.id]) {
             switch (message.status) {
                 case ResponseStatus.Error:
-                    this._activeRequestHash[message.id].reject(Bus._messageToData(message.content));
+                    this._activeRequestHash[message.id].reject(BusError.from(Bus._messageToData(message.content)));
                     break;
                 case ResponseStatus.Success:
                     this._activeRequestHash[message.id].resolve(Bus._messageToData(message.content));

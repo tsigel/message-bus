@@ -1,12 +1,19 @@
+import EventEmitter from 'typed-ts-events';
 import { Bus, EventType, TMessageContent, console, config } from '../src';
 import { MockAdapter } from './mock/MockAdapter';
-import { Signal } from 'ts-utils';
 
 
 describe('Bus', () => {
 
     let adapter: MockAdapter;
     let bus: Bus;
+
+    class Emitter<T extends Record<string, any>> extends EventEmitter<T> {
+        public trigger<K extends keyof T>(eventName: K, params: T[K]): this {
+            super.trigger(eventName, params);
+            return this;
+        }
+    }
 
     beforeEach(() => {
         config.console.logLevel = config.console.LOG_LEVEL.PRODUCTION;
@@ -37,7 +44,7 @@ describe('Bus', () => {
         const eventData = { some: true };
         let wasCall = 0;
 
-        adapter.onSend.once((eventData: TMessageContent) => {
+        adapter.events.once('send', (eventData: TMessageContent) => {
 
             if (eventData.type !== EventType.Event) {
                 throw new Error('Wrong event type!');
@@ -51,7 +58,7 @@ describe('Bus', () => {
 
         bus.dispatchEvent(eventName, void 0);
 
-        adapter.onSend.once((event: TMessageContent) => {
+        adapter.events.once('send', (event: TMessageContent) => {
             if (event.type !== EventType.Event) {
                 throw new Error('Wrong event type!');
             }
@@ -73,27 +80,28 @@ describe('Bus', () => {
         const originError = consoleModule.error;
         const originInfo = consoleModule.info;
 
-        let info: Signal<Array<any>>;
-        let error: Signal<Array<any>>;
+        let info: Emitter<{ test: Array<any> }>;
+        let error: Emitter<{ test: Array<any> }>;
 
         beforeEach(() => {
-            info = new Signal<Array<any>>();
-            error = new Signal<Array<any>>();
+            info = new Emitter();
+            error = new Emitter();
+
             consoleModule.info = (...args: Array<any>) => {
-                info.dispatch(args);
+                info.trigger('test', args);
             };
             consoleModule.error = (...args: Array<any>) => {
-                error.dispatch(args);
+                error.trigger('test', args);
             };
         });
 
         it('Check production level', done => {
 
             let counter = 0;
-            info.on(() => {
+            info.on('test', () => {
                 counter++;
             });
-            error.on(() => {
+            error.on('test', () => {
                 counter++;
             });
 
@@ -113,10 +121,10 @@ describe('Bus', () => {
 
             config.console.logLevel = config.console.LOG_LEVEL.ERRORS;
             let counter = 0;
-            info.on(() => {
+            info.on('test', () => {
                 counter++;
             });
-            error.on(e => {
+            error.on('test', e => {
                 expect(String(e)).toBe('Error: Timeout error for request with name "some" and timeout 10!');
                 counter++;
             });
@@ -133,10 +141,10 @@ describe('Bus', () => {
 
             config.console.logLevel = config.console.LOG_LEVEL.VERBOSE;
             let counter = 0;
-            info.on(() => {
+            info.on('test', () => {
                 counter++;
             });
-            error.on(e => {
+            error.on('test', e => {
                 expect(String(e)).toBe('Error: Timeout error for request with name "some" and timeout 10!');
                 counter++;
             });
@@ -297,8 +305,8 @@ describe('Bus', () => {
 
             secondBus.registerRequestHandler(requestData.name, requestData.handler);
 
-            adapter.onSend.once((data) => {
-                secondAdapter.onSend.once(d => adapter.dispatchAdapterEvent(d));
+            adapter.events.once('send', (data) => {
+                secondAdapter.events.once('send', d => adapter.dispatchAdapterEvent(d));
                 secondAdapter.dispatchAdapterEvent(data);
             });
 
@@ -324,8 +332,8 @@ describe('Bus', () => {
 
             secondBus.registerRequestHandler(requestData.name, requestData.handler);
 
-            adapter.onSend.once((data) => {
-                secondAdapter.onSend.once(d => adapter.dispatchAdapterEvent(d));
+            adapter.events.once('send', (data) => {
+                secondAdapter.events.once('send', d => adapter.dispatchAdapterEvent(d));
                 secondAdapter.dispatchAdapterEvent(data);
             });
 
@@ -350,8 +358,8 @@ describe('Bus', () => {
             const secondAdapter = new MockAdapter();
             new Bus(secondAdapter);
 
-            adapter.onSend.once((data) => {
-                secondAdapter.onSend.once(d => adapter.dispatchAdapterEvent(d));
+            adapter.events.once('send', (data) => {
+                secondAdapter.events.once('send', d => adapter.dispatchAdapterEvent(d));
                 secondAdapter.dispatchAdapterEvent(data);
             });
 
@@ -376,8 +384,8 @@ describe('Bus', () => {
 
             secondBus.registerRequestHandler(requestData.name, requestData.handler);
 
-            adapter.onSend.once((data) => {
-                secondAdapter.onSend.once(d => adapter.dispatchAdapterEvent(d));
+            adapter.events.once('send', (data) => {
+                secondAdapter.events.once('send', d => adapter.dispatchAdapterEvent(d));
                 secondAdapter.dispatchAdapterEvent(data);
             });
 
@@ -393,7 +401,7 @@ describe('Bus', () => {
             const f = () => null, name = 'test';
 
             bus.registerRequestHandler(name, f);
-            expect(() => bus.registerRequestHandler(name, f)).toThrow('Duplicate request handler!');
+            expect(() => bus.registerRequestHandler(name, f)).toThrow('Duplicate request handler for test!');
         });
 
     });

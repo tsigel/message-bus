@@ -1,16 +1,24 @@
+import EventEmitter from 'typed-ts-events';
 import { Adapter, TMessageContent, IOneArgFunction } from '../../src';
-import { Signal } from 'ts-utils';
+
+class Emitter<T extends Record<string, any>> extends EventEmitter<T> {
+
+    public trigger<K extends keyof T>(eventName: K, params: T[K]): this {
+        super.trigger(eventName, params);
+        return this;
+    }
+
+}
 
 
 export class MockAdapter extends Adapter {
 
-    public onSend: Signal<TMessageContent> = new Signal();
-    public onDestroy: Signal<{}> = new Signal();
+    public events: Emitter<{ send: TMessageContent; destroy: void }> = new Emitter();
     private listeners: Array<Function> = [];
 
 
     public send(data: TMessageContent): this {
-        this.onSend.dispatch(data);
+        this.events.trigger('send', data);
         return this;
     }
 
@@ -24,7 +32,7 @@ export class MockAdapter extends Adapter {
     }
 
     public destroy(): void {
-        this.onDestroy.dispatch({});
+        this.events.trigger('destroy', void 0);
     }
 
 }

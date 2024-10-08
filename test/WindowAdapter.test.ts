@@ -126,7 +126,7 @@ describe('Window adapter', () => {
     it('send', () => {
         let wasEvent = false;
 
-        dispatchWin.onPostMessageRun.once(message => {
+        dispatchWin.events.once('onPostMessageRun', (message: any) => {
             wasEvent = true;
             expect(message.data).toEqual(eventData);
         });
@@ -170,7 +170,7 @@ describe('Window adapter', () => {
         let wasPostMessage = false;
         let wasListenEvent = false;
 
-        dispatchWin.onPostMessageRun.once(() => {
+        dispatchWin.events.once('onPostMessageRun', () => {
             wasPostMessage = true;
         });
 
@@ -197,7 +197,14 @@ describe('Window adapter', () => {
         const addEventListener = window.addEventListener;
         const removeEventListener = window.removeEventListener;
         const postMessage = window.postMessage;
-        const emitter = new EventEmitter<any>();
+
+        class Emitter<T extends Record<string, any>> extends EventEmitter<T> {
+            public trigger<K extends keyof T>(eventName: K, params: any): this {
+                return super.trigger(eventName, params);
+            }
+        }
+
+        const emitter = new Emitter<any>();
 
         beforeEach(() => {
             (window as any).origin = window.location.origin;
@@ -208,9 +215,9 @@ describe('Window adapter', () => {
             window.removeEventListener = (event: string, handler: any) => {
                 emitter.off(event, handler);
             };
-            window.postMessage = (data: any, origin: string) => {
+            window.postMessage = ((data: any, origin: string) => {
                 emitter.trigger('message', { data, origin });
-            };
+            }) as Window['postMessage'];
         });
 
         afterAll(() => {
@@ -249,7 +256,7 @@ describe('Window adapter', () => {
                     let listenerCount = 0;
                     let sendCount = 0;
 
-                    win.onPostMessageRun.on(() => {
+                    win.events.on('onPostMessageRun', () => {
                         sendCount++;
                     });
 

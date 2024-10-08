@@ -19,7 +19,7 @@ function saveEvent(type: string, args: Array<any>) {
 }
 
 function generateConsole(): Record<config.console.TConsoleMethods, (...args: Array<any>) => void> {
-    return keys(config.console.methodsData).reduce((api, method) => {
+    return keys(config.console.methodsData).reduce<Record<config.console.TConsoleMethods, (...args: Array<any>) => void>>((api, method) => {
         api[method] = (...args: Array<any>) => {
             if (config.console.logLevel < config.console.methodsData[method].logLevel) {
                 if (config.console.methodsData[method].save) {

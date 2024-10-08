@@ -1,15 +1,24 @@
-import { Signal } from 'ts-utils';
+import EventEmitter from 'typed-ts-events';
 import { WindowProtocol } from '../../src/protocols/WindowProtocol';
+
+class Emitter<T extends Record<string, any>> extends EventEmitter<T> {
+
+    public trigger<K extends keyof T>(eventName: K, params: T[K]): this {
+        super.trigger(eventName, params);
+        return this;
+    }
+
+}
 
 
 class Win {
 
-    public onPostMessageRun: Signal<any> = new Signal();
+    public events: Emitter<{ 'onPostMessageRun': any }> = new Emitter();
     private _handlers: Record<string, Array<Function>> = Object.create(null);
 
 
     public postMessage(data: any, origin: string): void {
-        this.onPostMessageRun.dispatch({ data, origin });
+        this.events.trigger('onPostMessageRun', { data, origin });
     }
 
     public removeEventListener(event: string, handler: any): void {
@@ -41,7 +50,7 @@ export function mockWindow<T>(): IMockWindow<T> {
 }
 
 export interface IMockWindow<T> extends WindowProtocol.IWindow {
-    onPostMessageRun: Signal<IPostMessageEvent<T>>;
+    events: Emitter<{ 'onPostMessageRun': T }>;
     runEventListeners(event: string, eventData: any): void;
 }
 
