@@ -1,6 +1,5 @@
 import { Adapter } from '../adapters/Adapter';
 import { uniqueId, console, BusError } from '../utils';
-import { StrictType } from '../types';
 
 
 export const enum EventType {
@@ -34,13 +33,13 @@ export class Bus<T extends Record<string, any> = any, H extends Record<string, (
         console.info(`Create Bus with id "${this.id}"`);
     }
 
-    public dispatchEvent<K extends StrictType<keyof T, string>>(name: K, data: T[K]): this {
+    public dispatchEvent<K extends keyof T>(name: K, data: T[K]): this {
         this._adapter.send(Bus._createEvent(name as string, data));
-        console.info(`Dispatch event "${name}"`, data);
+        console.info(`Dispatch event "${name as string}"`, data);
         return this;
     }
 
-    public request<E extends StrictType<keyof H, string>>(name: E, data?: Parameters<H[E]>[0], timeout?: number): Promise<ReturnType<H[E]> extends Promise<infer P> ? P : ReturnType<H[E]>> {
+    public request<E extends keyof H>(name: E, data?: Parameters<H[E]>[0], timeout?: number): Promise<ReturnType<H[E]> extends Promise<infer P> ? P : ReturnType<H[E]>> {
         return new Promise<any>((resolve, reject) => {
             const id = uniqueId(`${this.id}-action`);
             const wait = timeout || this._timeout;
@@ -50,7 +49,7 @@ export class Bus<T extends Record<string, any> = any, H extends Record<string, (
             if ((timeout || this._timeout) !== -1) {
                 timer = setTimeout(() => {
                     delete this._activeRequestHash[id];
-                    const error = new BusError(`Timeout error for request with name "${name}" and timeout ${wait}!`, '');
+                    const error = new BusError(`Timeout error for request with name "${name as string}" and timeout ${wait}!`, '');
                     console.error(error);
                     reject(error);
                 }, wait);
@@ -65,18 +64,18 @@ export class Bus<T extends Record<string, any> = any, H extends Record<string, (
             this._activeRequestHash[id] = {
                 reject: (error: any) => {
                     cancelTimeout();
-                    console.error(`Error request with name "${name}"`, error);
+                    console.error(`Error request with name "${name as string}"`, error);
                     reject(error);
                 },
                 resolve: (data: T) => {
                     cancelTimeout();
-                    console.info(`Request with name "${name}" success resolved!`, data);
+                    console.info(`Request with name "${name as string}" success resolved!`, data);
                     resolve(data);
                 }
             };
 
             this._adapter.send({ id, type: EventType.Action, name, data });
-            console.info(`Request with name "${name}"`, data);
+            console.info(`Request with name "${name as string}"`, data);
         });
     }
 
@@ -116,9 +115,9 @@ export class Bus<T extends Record<string, any> = any, H extends Record<string, (
         return this;
     }
 
-    public registerRequestHandler<E extends StrictType<keyof H, string>>(name: E, handler: H[E]): this {
+    public registerRequestHandler<E extends keyof H>(name: E, handler: H[E]): this {
         if (this._requestHandlers[name]) {
-            throw new Error(`Duplicate request handler for ${name}!`);
+            throw new Error(`Duplicate request handler for ${name as string}!`);
         }
 
         this._requestHandlers[name] = handler;
