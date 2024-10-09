@@ -48,8 +48,8 @@
     "prepare": "npm run build",
     "preversion": "npm run test",
     "postversion": "npm publish",
-    "postpublish": "git push",
-    "build": "tsc --build ./",
+    "postpublish": "git push && git push --tags",
+    "build": "npx tsc",
     "test": "jest"
   },
   "dependencies": {
