@@ -1,5 +1,5 @@
 import { Adapter } from '../adapters/Adapter';
-import { uniqueId, console, BusError } from '../utils';
+import { BusError, console, uniqueId } from '../utils';
 
 
 export const enum EventType {
@@ -31,6 +31,13 @@ export class Bus<T extends Record<string, any> = any, H extends Record<string, (
         this._requestHandlers = Object.create(null);
 
         console.info(`Create Bus with id "${this.id}"`);
+    }
+
+    public rejectAllPendingRequests(error: Error): void {
+        Object.entries(this._activeRequestHash).forEach(([id, { reject }]) => {
+            delete this._activeRequestHash[id];
+            reject(error);
+        });
     }
 
     public dispatchEvent<K extends keyof T>(name: K, data: T[K]): this {
@@ -336,5 +343,5 @@ interface IEventHandlerData {
 
 interface IInternalMessage {
     type: 'data' | 'error';
-    content: any
+    content: any;
 }
